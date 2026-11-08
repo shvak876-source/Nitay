@@ -77,6 +77,32 @@ h2{font-size:clamp(2.1rem,1.2rem + 3.4vw,4rem);margin-bottom:18px}
 @keyframes up{to{opacity:1;transform:none}}
 
 
+
+/* 3D fly-through showcase */
+.fly{height:620svh;position:relative;background:#0c1510}
+.fly .stage{position:sticky;top:0;height:100svh;overflow:hidden;perspective:900px;perspective-origin:50% 45%;color:#fff;background:#0c1510}
+.fly .bgglow{position:absolute;inset:0;background:#122219;opacity:.9}
+.fly .world{position:absolute;inset:0;transform-style:preserve-3d;will-change:transform}
+.fly .it{position:absolute;left:50%;top:50%;width:var(--w);aspect-ratio:var(--ar,3/2);margin:calc(var(--w)*-.33) 0 0 calc(var(--w)*-.5);border-radius:16px;overflow:hidden;background:#222;backface-visibility:hidden;will-change:transform,opacity;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.fly .it img{width:100%;height:100%;object-fit:cover}
+.fly .top{position:absolute;top:88px;inset-inline:var(--m);z-index:5;display:flex;justify-content:space-between;align-items:baseline;gap:20px;pointer-events:none}
+.fly .top h2{font-size:clamp(1.8rem,1.2rem + 2vw,3.2rem);margin:0}
+.fly .cap{position:absolute;bottom:clamp(30px,7vh,70px);inset-inline:var(--m);z-index:5;text-align:center;font:500 clamp(1.3rem,1.1rem + 1vw,2rem) var(--display);transition:opacity .4s;pointer-events:none}
+.fly .hint{font-size:.95rem;opacity:.8}
+.fly .end{position:absolute;inset:0;z-index:6;display:grid;place-content:center;justify-items:center;gap:22px;text-align:center;opacity:0;pointer-events:none;padding:0 var(--m)}
+.fly .end h2{font-size:clamp(2.6rem,1.4rem + 5vw,6rem);margin:0}
+.fly .end.on{pointer-events:auto}
+@media(max-width:860px){.fly{height:520svh}.fly .stage{perspective:700px}.fly .top{top:84px}}
+@media(prefers-reduced-motion:reduce){
+  .fly{height:auto}.fly .stage{position:relative;height:auto;perspective:none;padding:110px var(--m) 60px}
+  .fly .world{position:static;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .fly .it{position:static;width:auto;margin:0;transform:none!important;opacity:1!important}
+  .fly .top{position:static;margin-bottom:24px}.fly .cap,.fly .end{display:none}
+}
+/* 3D tilt on gallery photos */
+.gal .grid{perspective:1100px}
+.gal button{transition:transform .35s var(--ease);will-change:transform}
+
 /* story: one day at the house */
 .story{height:480svh;position:relative;background:#0b120d}
 .story .stage{position:sticky;top:0;height:100svh;overflow:hidden;color:#fff}
@@ -275,6 +301,16 @@ footer{background:var(--ink);color:#c9d3cc;padding:36px var(--m);display:flex;ju
     <div class="cta"><a class="btn light" href="#pricing">למחירון ולמבצעים</a><button class="btn ghost snd" type="button" aria-pressed="false">שמעו את הנחל</button></div>
   </div>
 </header>
+
+<section class="fly" id="fly" aria-label="גלריית תמונות תלת־ממדית">
+  <div class="stage">
+    <div class="bgglow"></div>
+    <div class="top"><h2>הצצה לעדנה</h2><span class="hint">גללו והיכנסו פנימה</span></div>
+    <div class="world" id="world"></div>
+    <div class="cap" id="flycap" aria-live="polite"></div>
+    <div class="end" id="flyend"><h2>מוכנים לבוא?</h2><a class="btn light" href="#pricing">למחירון ולמבצעים</a></div>
+  </div>
+</section>
 
 <section class="story" id="story" aria-label="יום אחד בעדנה">
   <div class="stage">
@@ -498,6 +534,58 @@ footer{background:var(--ink);color:#c9d3cc;padding:36px var(--m);display:flex;ju
   }
   addEventListener('scroll',chapter,{passive:true});chapter();
 
+
+  /* 3D fly-through: the camera moves forward through the photographs */
+  var FLY=[
+    ['stream-tall','הנחל הזורם לצד הבית',2/3],
+    ['hero','הבית ביום',3/2],
+    ['living','הסלון והשולחן',3/2],
+    ['ai/sunrise-stream','בוקר על הנחל (תמונת אווירה)',3/2,1],
+    ['night','הבית באור האחרון',3/2],
+    ['kitchen','המטבח הכשר',3/2],
+    ['exterior','הגינה וטרסות האבן',8/7],
+    ['ai/galilee-view','נוף הגליל (תמונת אווירה)',3/2,1],
+    ['bedroom','אחד מארבעת חדרי השינה',3/2],
+    ['stream','הנחל ליד הבית',2/3],
+    ['bathroom','מקלחת ושירותים',3/2],
+    ['ai/shabbat-table','שולחן שבת (תמונת אווירה)',3/2,1]
+  ];
+  var fly=$('#fly'),world=$('#world'),flycap=$('#flycap'),flyend=$('#flyend'),SP=900,fitems=[],px=0,py=0;
+  var small=innerWidth<=860;
+  FLY.forEach(function(f,i){
+    var d=document.createElement('div');d.className='it';
+    var side=i%2?1:-1,port=f[2]<1;
+    d.style.setProperty('--w',(small?(port?46:74):(port?23:40))+'vw');d.style.setProperty('--ar',f[2]);
+    var im=new Image();im.alt=f[1];im.src='images/'+f[0]+'.jpg';
+    if(f[3])im.onerror=function(){d.remove();var k=fitems.indexOf(o);if(k>-1)fitems.splice(k,1);layout()};
+    d.appendChild(im);world.appendChild(d);
+    var o={el:d,cap:f[1],side:side};fitems.push(o);
+  });
+  function layout(){
+    fitems.forEach(function(o,i){o.z=-i*SP;o.x=o.side*(small?18:24);o.y=(i%3-1)*(small?9:10);o.ry=-o.side*14});
+  }
+  layout();
+  function flyFrame(){
+    if(reduce)return;
+    var r=fly.getBoundingClientRect(),p=clamp(-r.top/(r.height-innerHeight),0,1),N=fitems.length;
+    var cam=-300+p*((N-1)*SP+1700),near=-1,nd=1e9;
+    world.style.transform='rotateX('+(py*-4)+'deg) rotateY('+(px*5)+'deg)';
+    fitems.forEach(function(o,i){
+      var rel=o.z+cam;
+      var op=clamp((rel+3400)/1500,0,1)*clamp((420-rel)/320,0,1);
+      o.el.style.opacity=op;
+      o.el.style.transform='translate3d('+o.x+'vw,'+o.y+'vh,'+o.z+'px) rotateY('+o.ry+'deg)';
+      o.el.style.visibility=op<.01?'hidden':'visible';
+      var dd=Math.abs(rel+250);if(dd<nd){nd=dd;near=i}
+    });
+    world.style.transform+=' translateZ('+cam+'px)';
+    flycap.textContent=near>-1&&p<.94?fitems[near].cap:'';
+    var e=clamp((p-.9)/.08,0,1);flyend.style.opacity=e;flyend.classList.toggle('on',e>.5);
+  }
+  addEventListener('scroll',flyFrame,{passive:true});addEventListener('resize',flyFrame);flyFrame();
+  addEventListener('pointermove',function(e){if(e.pointerType==='touch')return;px=e.clientX/innerWidth-.5;py=e.clientY/innerHeight-.5;flyFrame()},{passive:true});
+
+
   /* the sound of the stream, synthesised in the browser */
   var ctx,master,snds=$$('.snd'),playing=false;
   function build(){
@@ -534,6 +622,13 @@ footer{background:var(--ink);color:#c9d3cc;padding:36px var(--m);display:flex;ju
   $('.x',lbx).onclick=hide;$('.pv',lbx).onclick=function(){show(cur-1)};$('.nx',lbx).onclick=function(){show(cur+1)};
   lbx.onclick=function(e){if(e.target===lbx)hide()};
   addEventListener('keydown',function(e){if(!lbx.classList.contains('open'))return;if(e.key==='Escape')hide();if(e.key==='ArrowRight')show(cur-1);if(e.key==='ArrowLeft')show(cur+1)});
+
+
+  /* 3D tilt on gallery photos */
+  if(!reduce)$$('#grid button').forEach(function(b){
+    b.addEventListener('pointermove',function(e){var r=b.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;b.style.transform='rotateY('+(x*14)+'deg) rotateX('+(y*-14)+'deg) scale(1.03)'});
+    b.addEventListener('pointerleave',function(){b.style.transform=''});
+  });
 
   /* calculator: guests above 8 pay 300 per night; a Fri-Sat package counts as 2 nights */
   var st={n:2,g:8},kind='mid',fmt=function(x){return x.toLocaleString('he-IL')+' ₪'};
